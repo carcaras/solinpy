@@ -160,6 +160,49 @@ O jitter ajuda a evitar que múltiplos clientes sincronizem seus retries (thunde
 4. **Sem validação de resposta** — se `"result"` estiver ausente, gera `KeyError`
 5. **Dependência de `entities.py`** — `RPCConfig` está em `solinpy.client.entities`
 
+## Executando os Testes
+
+Os testes usam apenas a biblioteca padrão do Python (`unittest`). Nenhuma dependência extra é necessária.
+
+### Todos os testes
+
+```bash
+python -m unittest solinpy.client.test_client -v
+```
+
+### Arquivo específico
+
+```bash
+python -m unittest solinpy.client.test_client.TestSolanaRPCClient -v
+python -m unittest solinpy.client.test_client.TestRPCRetryAndTimeout -v
+```
+
+### Teste individual
+
+```bash
+python -m unittest solinpy.client.test_client.TestSolanaRPCClient.test_get_health_success -v
+```
+
+### Saída esperada
+
+```
+test_no_retry_on_fatal_rpc_error ... ok
+test_retry_exhausted_on_network_error ... ok
+test_retry_on_http_429 ... ok
+test_timeout_applied_to_config ... ok
+test_endpoint_resolution ... ok
+test_get_health_success ... ok
+test_get_latest_blockhash ... ok
+test_retry_on_network_error ... ok
+test_rpc_error_response ... ok
+test_send_transaction_payload ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 1.XXXs
+
+OK
+```
+
 ## Estrutura de Arquivos
 
 ```
