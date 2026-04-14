@@ -10,3 +10,10 @@ class RPCConfig:
     timeout: float = 10.0
     retries: int = 3
     backoff_factor: float = 0.5
+
+@dataclass
+class TokenBalance:
+    mint: str
+    amount: float
+    decimals: int
+    ui_amount: str

@@ -62,3 +62,66 @@ class SolanaRPCClient:
                 "maxRetries": max_retries
             }])
         return resp["result"]
+    
+    def get_balance(self, address: str) -> int:
+        """
+        Returns the account balance in Lamports.
+        
+        Args:
+            address: The base58-encoded public key of the account.
+            
+        Returns:
+            int: The balance in Lamports.
+        """
+        resp = self._call("getBalance", [address])
+        return resp["result"]["value"]
+
+    def get_token_accounts_by_owner(self, address: str) -> list[Dict[str, Any]]:
+        """
+        Returns the list of SPL token accounts associated with an address.
+        """
+        TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        
+        sanitized_address = address.strip()
+        
+        params = [
+            sanitized_address,
+            {"programId": TOKEN_PROGRAM_ID},
+            {"encoding": "jsonParsed", "commitment": "confirmed"} # Adicionado o commitment
+        ]
+        
+        resp = self._call("getTokenAccountsByOwner", params)
+        return resp["result"]["value"]
+    
+    def get_sol_balance(self, address: str) -> float:
+        """
+        Returns the account balance converted to SOL (user-friendly unit).
+
+        Args:
+            address: The base58-encoded public key of the account.
+
+        Returns:
+            float: The balance in SOL.
+        """
+        lamports = self.get_balance(address)
+        # 1 SOL is equivalent to 1,000,000,000 Lamports
+        return lamports / 1_000_000_000
+    
+    def get_token_balances(self, address: str) -> list[dict]:
+        """
+        Retrieves a simplified list of token balances for a given address.
+        """
+        raw_accounts = self.get_token_accounts_by_owner(address)
+        balances = []
+        
+        for account in raw_accounts:
+            info = account["account"]["data"]["parsed"]["info"]
+            token_amount = info["tokenAmount"]
+            
+            balances.append({
+                "mint": info["mint"],
+                "amount": token_amount["uiAmount"],
+                "decimals": token_amount["decimals"]
+            })
+            
+        return balances
