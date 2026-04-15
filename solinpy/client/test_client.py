@@ -3,12 +3,15 @@ from unittest.mock import patch, MagicMock
 import json
 import base64
 import urllib.error
-from .client import SolanaRPCClient, RPCConfig
+from .client import SolanaRPCClient
+from .execptions import RPCError
+from .entities import RPCConfig
+
 
 class TestSolanaRPCClient(unittest.TestCase):
     def setUp(self):
-        # retries=1 para testes rápidos (1 chamada inicial + 1 retry = 2 total)
-        self.config = RPCConfig(cluster="devnet", retries=1, timeout=1.0)
+        # max_retries=1 para testes rápidos (1 chamada inicial + 1 retry = 2 total)
+        self.config = RPCConfig(cluster="devnet", max_retries=1, timeout=1.0)
 
     def _mock_urlopen_response(self, data: dict):
         """Helper para criar um mock compatível com context manager"""
@@ -18,7 +21,7 @@ class TestSolanaRPCClient(unittest.TestCase):
         mock_resp.__exit__ = MagicMock(return_value=False)
         return mock_resp
 
-    # 🟢 1. Resolução de endpoints
+    #  1. Resolução de endpoints
     def test_endpoint_resolution(self):
         c1 = SolanaRPCClient(RPCConfig(cluster="mainnet"))
         self.assertEqual(c1.endpoint, "https://api.mainnet-beta.solana.com")
@@ -26,7 +29,7 @@ class TestSolanaRPCClient(unittest.TestCase):
         c2 = SolanaRPCClient(RPCConfig(custom_endpoint="https://meu-rpc.com"))
         self.assertEqual(c2.endpoint, "https://meu-rpc.com")
 
-    # 🟢 2. Sucesso básico
+    #  2. Sucesso básico
     @patch("urllib.request.urlopen")
     def test_get_health_success(self, mock_urlopen):
         mock_urlopen.return_value = self._mock_urlopen_response({"result": "ok"})
@@ -35,34 +38,34 @@ class TestSolanaRPCClient(unittest.TestCase):
 
     @patch("urllib.request.urlopen")
     def test_get_latest_blockhash(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({
-            "result": {"value": {"blockhash": "8xYz...abc"}}
-        })
+        mock_urlopen.return_value = self._mock_urlopen_response(
+            {"result": {"value": {"blockhash": "8xYz...abc"}}}
+        )
         client = SolanaRPCClient(self.config)
         self.assertEqual(client.get_latest_blockhash(), "8xYz...abc")
 
-    # 🟡 3. Retry em falhas de rede
+    #  3. Retry em falhas de rede
     @patch("urllib.request.urlopen")
     def test_retry_on_network_error(self, mock_urlopen):
         mock_urlopen.side_effect = urllib.error.URLError("connection refused")
         client = SolanaRPCClient(self.config)
-        with self.assertRaises(ConnectionError):
+        with self.assertRaises(RPCError):
             client.get_health()
         # 1 tentativa inicial + 1 retry = 2 chamadas
         self.assertEqual(mock_urlopen.call_count, 2)
 
-    # 🔴 4. Tratamento de erro RPC
+    #  4. Tratamento de erro RPC
     @patch("urllib.request.urlopen")
     def test_rpc_error_response(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({
-            "error": {"code": -32005, "message": "Blockhash expired"}
-        })
+        mock_urlopen.return_value = self._mock_urlopen_response(
+            {"error": {"code": -32600, "message": "Invalid Request"}}
+        )
         client = SolanaRPCClient(self.config)
-        with self.assertRaises(RuntimeError) as ctx:
+        with self.assertRaises(RPCError) as ctx:
             client.get_health()
-        self.assertIn("Blockhash expired", str(ctx.exception))
+        self.assertIn("Invalid Request", str(ctx.exception))
 
-    # 🔵 5. Validação do payload de sendTransaction
+    #  5. Validação do payload de sendTransaction
     @patch("urllib.request.urlopen")
     def test_send_transaction_payload(self, mock_urlopen):
         mock_urlopen.return_value = self._mock_urlopen_response({"result": "5sig..."})
