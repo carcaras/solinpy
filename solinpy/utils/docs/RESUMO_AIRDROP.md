@@ -62,3 +62,13 @@ python -m ruff check .
 
 - Type check:
 python -m mypy solinpy
+
+## Atualizacao recente
+
+Foi feita uma melhoria para deixar a API de airdrop mais clara sem quebrar o que ja existia.
+
+- Nova funcao principal: `create_airdrop`
+- `request_airdrop` foi mantida como alias (compatibilidade)
+- Export atualizado em `solinpy/utils/__init__.py`
+- Teste novo para `create_airdrop` adicionado em `solinpy/tests/test_airdrop.py`
+- Validacao executada: `7 passed` nos testes de airdrop

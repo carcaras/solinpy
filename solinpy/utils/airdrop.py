@@ -16,6 +16,29 @@ def request_airdrop(
     custom_endpoint: Optional[str] = None,
 ) -> dict:
     """
+    Backward-compatible alias para create_airdrop.
+
+    Mantida para não quebrar código existente.
+    """
+    return create_airdrop(
+        keypair=keypair,
+        cluster=cluster,
+        lamports=lamports,
+        timeout=timeout,
+        poll_interval=poll_interval,
+        custom_endpoint=custom_endpoint,
+    )
+
+
+def create_airdrop(
+    keypair: Keypair,
+    cluster: str = "devnet",
+    lamports: int = 1_000_000_000,
+    timeout: float = 60.0,
+    poll_interval: float = 2.0,
+    custom_endpoint: Optional[str] = None,
+) -> dict:
+    """
     Solicita um airdrop de SOL para uma carteira em ambientes de teste (devnet ou testnet).
 
     Esta função envia a solicitação de airdrop e aguarda automaticamente

@@ -2,11 +2,37 @@ import pytest
 from unittest.mock import MagicMock, patch
 from solders.keypair import Keypair
 
-from solinpy.utils.airdrop import request_airdrop
+from solinpy.utils.airdrop import create_airdrop, request_airdrop
 
 
 class TestRequestAirdrop:
     """Testes para a função request_airdrop."""
+
+    def test_create_airdrop_devnet_success(self) -> None:
+        """Testa solicitação via create_airdrop com sucesso."""
+        keypair = Keypair()
+
+        with patch("solinpy.utils.airdrop.SolanaRPCClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client_cls.return_value = mock_client
+
+            mock_client._call.side_effect = [
+                {"result": "fake_signature_create"},
+                {
+                    "result": {
+                        "value": [
+                            {"confirmationStatus": "confirmed", "err": None}
+                        ]
+                    }
+                },
+                {"result": {"value": 1_000_000_000}},
+            ]
+
+            result = create_airdrop(keypair, cluster="devnet")
+
+            assert result["signature"] == "fake_signature_create"
+            assert result["confirmed"] is True
+            assert result["balance"] == 1_000_000_000
 
     def test_airdrop_devnet_success(self) -> None:
         """Testa solicitação de airdrop na devnet com sucesso."""

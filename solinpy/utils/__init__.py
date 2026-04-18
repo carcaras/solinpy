@@ -1,3 +1,3 @@
-from solinpy.utils.airdrop import request_airdrop
+from solinpy.utils.airdrop import create_airdrop, request_airdrop
 
-__all__ = ["request_airdrop"]
+__all__ = ["create_airdrop", "request_airdrop"]
