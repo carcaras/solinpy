@@ -8,5 +8,4 @@ build/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
-
-scripts/
+.python-version
