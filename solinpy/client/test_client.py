@@ -83,6 +83,43 @@ class TestSolanaRPCClient(unittest.TestCase):
         self.assertEqual(payload["params"][1]["encoding"], "base64")
         self.assertEqual(payload["params"][1]["maxRetries"], 5)
 
+    def test_get_transaction_history_payload_and_result(self):
+        history = [
+            {
+                "signature": "sig-1",
+                "slot": 123,
+                "confirmationStatus": "confirmed",
+            },
+            {
+                "signature": "sig-2",
+                "slot": 122,
+                "confirmationStatus": "finalized",
+            },
+        ]
+        transport = RPCMockTransport()
+        transport.queue_result("getSignaturesForAddress", history)
+        client = SolanaRPCClient(self.config, transport=transport)
+
+        result = client.get_transaction_history(
+            "  wallet-address  ",
+            limit=2,
+            before="before-sig",
+            until="until-sig",
+            commitment="finalized",
+        )
+
+        self.assertEqual(result, history)
+        payload = {
+            "method": transport.requests[0]["method"],
+            "params": transport.requests[0]["params"],
+        }
+        self.assertEqual(payload["method"], "getSignaturesForAddress")
+        self.assertEqual(payload["params"][0], "wallet-address")
+        self.assertEqual(payload["params"][1]["limit"], 2)
+        self.assertEqual(payload["params"][1]["before"], "before-sig")
+        self.assertEqual(payload["params"][1]["until"], "until-sig")
+        self.assertEqual(payload["params"][1]["commitment"], "finalized")
+
 class TestRPCRetryAndTimeout(unittest.TestCase):
     def setUp(self):
         self.config = RPCConfig(
