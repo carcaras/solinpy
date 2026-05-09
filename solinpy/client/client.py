@@ -189,3 +189,36 @@ class SolanaRPCClient:
             })
             
         return balances
+
+    def get_transaction_history(
+        self,
+        address: str,
+        limit: int = 20,
+        before: Optional[str] = None,
+        until: Optional[str] = None,
+        commitment: str = "confirmed",
+    ) -> list[Dict[str, Any]]:
+        """List recent transaction signatures for a wallet address."""
+        sanitized_address = address.strip()
+        config: Dict[str, Any] = {
+            "limit": limit,
+            "commitment": commitment,
+        }
+
+        if before is not None:
+            config["before"] = before
+        if until is not None:
+            config["until"] = until
+
+        resp = self._call(
+            "getSignaturesForAddress",
+            [sanitized_address, config],
+            {
+                "address": sanitized_address,
+                "limit": limit,
+                "before": before,
+                "until": until,
+                "commitment": commitment,
+            },
+        )
+        return resp["result"]
