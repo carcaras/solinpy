@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock
 import json
 import urllib.error
 from .client import SolanaRPCClient
+from .rpc_mock import RPCMockTransport
 from .execptions import RPCError
 from .entities import RPCConfig
 
@@ -29,10 +30,10 @@ class TestSolanaRPCClient(unittest.TestCase):
         self.assertEqual(c2.endpoint, "https://meu-rpc.com")
 
     #  2. Sucesso básico
-    @patch("urllib.request.urlopen")
-    def test_get_health_success(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({"result": "ok"})
-        client = SolanaRPCClient(self.config)
+    def test_get_health_success(self):
+        transport = RPCMockTransport()
+        transport.queue_result("getHealth", "ok")
+        client = SolanaRPCClient(self.config, transport=transport)
         self.assertEqual(client.get_health(), "ok")
 
     @patch("urllib.request.urlopen")
@@ -65,20 +66,60 @@ class TestSolanaRPCClient(unittest.TestCase):
         self.assertIn("Requisição RPC inválida", str(ctx.exception))
 
     #  5. Validação do payload de sendTransaction
-    @patch("urllib.request.urlopen")
-    def test_send_transaction_payload(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({"result": "5sig..."})
-        client = SolanaRPCClient(self.config)
+    def test_send_transaction_payload(self):
+        transport = RPCMockTransport()
+        transport.queue_result("sendTransaction", "5sig...")
+        client = SolanaRPCClient(self.config, transport=transport)
         sig = client.send_transaction("base64payload==")
         self.assertEqual(sig, "5sig...")
 
         # Verifica se o JSON-RPC foi montado corretamente
-        call_args = mock_urlopen.call_args[0][0]
-        payload = json.loads(call_args.data)
+        payload = {
+            "method": transport.requests[0]["method"],
+            "params": transport.requests[0]["params"],
+        }
         self.assertEqual(payload["method"], "sendTransaction")
         self.assertEqual(payload["params"][0], "base64payload==")
         self.assertEqual(payload["params"][1]["encoding"], "base64")
         self.assertEqual(payload["params"][1]["maxRetries"], 5)
+
+    def test_get_transaction_history_payload_and_result(self):
+        history = [
+            {
+                "signature": "sig-1",
+                "slot": 123,
+                "confirmationStatus": "confirmed",
+            },
+            {
+                "signature": "sig-2",
+                "slot": 122,
+                "confirmationStatus": "finalized",
+            },
+        ]
+        transport = RPCMockTransport()
+        transport.queue_result("getSignaturesForAddress", history)
+        client = SolanaRPCClient(self.config, transport=transport)
+
+        result = client.get_transaction_history(
+            "  wallet-address  ",
+            limit=2,
+            before="before-sig",
+            until="until-sig",
+            commitment="finalized",
+        )
+
+        self.assertEqual(result, history)
+        payload = {
+            "method": transport.requests[0]["method"],
+            "params": transport.requests[0]["params"],
+        }
+        self.assertEqual(payload["method"], "getSignaturesForAddress")
+        self.assertEqual(payload["params"][0], "wallet-address")
+        self.assertEqual(payload["params"][1]["limit"], 2)
+        self.assertEqual(payload["params"][1]["before"], "before-sig")
+        self.assertEqual(payload["params"][1]["until"], "until-sig")
+        self.assertEqual(payload["params"][1]["commitment"], "finalized")
+
 
 class TestRPCRetryAndTimeout(unittest.TestCase):
     def setUp(self):
@@ -159,6 +200,7 @@ class TestRPCRetryAndTimeout(unittest.TestCase):
         error_text = str(ctx.exception)
         self.assertIn("Saldo insuficiente", error_text)
         self.assertIn("método=sendTransaction", error_text)
+
 
 if __name__ == "__main__":
     unittest.main()

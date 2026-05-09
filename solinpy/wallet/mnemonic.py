@@ -1,4 +1,3 @@
-
 import hmac
 import hashlib
 import struct
@@ -7,11 +6,8 @@ from mnemonic import Mnemonic
 from solders.keypair import Keypair
 
 
-
 def import_from_mnemonic(
-    mnemonic_str: str,
-    passphrase: str = "",
-    derivation_path: str = "m/44'/501'/0'/0'"
+    mnemonic_str: str, passphrase: str = "", derivation_path: str = "m/44'/501'/0'/0'"
 ) -> Keypair:
     """Reconstrói uma Keypair Solana a partir de uma seed phrase BIP39."""
     if not isinstance(mnemonic_str, str):
@@ -20,10 +16,10 @@ def import_from_mnemonic(
     words = mnemonic_str.strip().split()
     if len(words) not in (12, 18, 24):
         raise ValueError("Invalid mnemonic length: must be 12, 18 or 24 words")
-    
+
     if not Mnemonic("english").check(mnemonic_str.strip()):
         raise ValueError("Invalid mnemonic: checksum or wordlist mismatch")
-    
+
     seed = Mnemonic("english").to_seed(mnemonic_str.strip(), passphrase=passphrase)
     private_key = _derive_slip10_ed25519(seed, derivation_path)
 
@@ -32,6 +28,7 @@ def import_from_mnemonic(
     del seed, private_key
     gc.collect()
     return keypair
+
 
 def _derive_slip10_ed25519(seed: bytes, path: str) -> bytes:
     """Derivação interna SLIP-0010 para Ed25519 (hardened only)."""

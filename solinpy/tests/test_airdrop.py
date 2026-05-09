@@ -18,13 +18,7 @@ class TestRequestAirdrop:
 
             mock_client._call.side_effect = [
                 {"result": "fake_signature_create"},
-                {
-                    "result": {
-                        "value": [
-                            {"confirmationStatus": "confirmed", "err": None}
-                        ]
-                    }
-                },
+                {"result": {"value": [{"confirmationStatus": "confirmed", "err": None}]}},
                 {"result": {"value": 1_000_000_000}},
             ]
 
@@ -44,13 +38,7 @@ class TestRequestAirdrop:
 
             mock_client._call.side_effect = [
                 {"result": "fake_signature_123"},
-                {
-                    "result": {
-                        "value": [
-                            {"confirmationStatus": "confirmed", "err": None}
-                        ]
-                    }
-                },
+                {"result": {"value": [{"confirmationStatus": "confirmed", "err": None}]}},
                 {"result": {"value": 1_000_000_000}},
             ]
 
@@ -74,13 +62,7 @@ class TestRequestAirdrop:
 
             mock_client._call.side_effect = [
                 {"result": "fake_signature_456"},
-                {
-                    "result": {
-                        "value": [
-                            {"confirmationStatus": "finalized", "err": None}
-                        ]
-                    }
-                },
+                {"result": {"value": [{"confirmationStatus": "finalized", "err": None}]}},
                 {"result": {"value": 2_000_000_000}},
             ]
 
@@ -111,13 +93,7 @@ class TestRequestAirdrop:
 
             mock_client._call.side_effect = [
                 {"result": "fake_signature_789"},
-                {
-                    "result": {
-                        "value": [
-                            {"confirmationStatus": "confirmed", "err": None}
-                        ]
-                    }
-                },
+                {"result": {"value": [{"confirmationStatus": "confirmed", "err": None}]}},
                 {"result": {"value": custom_lamports}},
             ]
 
@@ -180,9 +156,7 @@ class TestRequestAirdrop:
             mock_client_cls.return_value = mock_client
             mock_client._call.side_effect = mock_call
 
-            result = request_airdrop(
-                keypair, cluster="devnet", timeout=5.0, poll_interval=0.05
-            )
+            result = request_airdrop(keypair, cluster="devnet", timeout=5.0, poll_interval=0.05)
 
             assert result["confirmed"] is True
             assert call_count >= 4

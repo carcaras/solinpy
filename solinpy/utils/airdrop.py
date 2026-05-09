@@ -102,6 +102,5 @@ def create_airdrop(
         time.sleep(poll_interval)
 
     raise TimeoutError(
-        f"Airdrop não foi confirmado dentro do timeout de {timeout}s. "
-        f"Assinatura: {signature}"
+        f"Airdrop não foi confirmado dentro do timeout de {timeout}s. Assinatura: {signature}"
     )

@@ -1,5 +1,3 @@
-import json
-import urllib.error
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -7,6 +5,7 @@ from solders.pubkey import Pubkey
 
 from solinpy.client.client import SolanaRPCClient
 from solinpy.client.entities import RPCConfig
+from solinpy.client.rpc_mock import RPCMockTransport
 from solinpy.client.execptions import (
     RPCError,
     _format_context,
@@ -14,14 +13,6 @@ from solinpy.client.execptions import (
 )
 from solinpy.utils.account_decoder import decode_account_data, decode_spl_token_account
 from solinpy.wallet.mnemonic import _derive_slip10_ed25519, import_from_mnemonic
-
-
-def _mock_urlopen_response(data: dict) -> MagicMock:
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = json.dumps(data).encode()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    return mock_resp
 
 
 def test_rpc_config_post_init_with_aliases() -> None:
@@ -93,25 +84,25 @@ def test_client_retryable_rpc_code_path() -> None:
     assert client._is_retryable(None, rpc_error={"code": -32004}) is True
 
 
-@patch("urllib.request.urlopen")
 @patch("time.sleep")
-def test_client_retries_rpc_error_then_succeeds(mock_sleep: MagicMock, mock_urlopen: MagicMock) -> None:
-    mock_urlopen.side_effect = [
-        _mock_urlopen_response({"error": {"code": -32004, "message": "temporarily unavailable"}}),
-        _mock_urlopen_response({"result": "ok"}),
-    ]
-    client = SolanaRPCClient(RPCConfig(max_retries=1, base_delay=0.01, max_delay=0.01, timeout=1.0))
+def test_client_retries_rpc_error_then_succeeds(mock_sleep: MagicMock) -> None:
+    transport = RPCMockTransport()
+    transport.queue_error("getHealth", -32004, "temporarily unavailable")
+    transport.queue_result("getHealth", "ok")
+
+    client = SolanaRPCClient(
+        RPCConfig(max_retries=1, base_delay=0.01, max_delay=0.01, timeout=1.0),
+        transport=transport,
+    )
     assert client.get_health() == "ok"
     assert mock_sleep.call_count == 1
 
 
-@patch("urllib.request.urlopen")
-def test_client_http_non_retryable_raises_transport_error(mock_urlopen: MagicMock) -> None:
-    mock_urlopen.side_effect = urllib.error.HTTPError("url", 400, "Bad Request", {}, MagicMock())
-    client = SolanaRPCClient(RPCConfig(max_retries=0, timeout=1.0))
+def test_client_missing_mock_response_fails_fast() -> None:
+    client = SolanaRPCClient(RPCConfig(max_retries=0, timeout=1.0), transport=RPCMockTransport())
     with pytest.raises(RPCError) as exc:
         client.get_health()
-    assert "Falha HTTP ao executar getHealth" in str(exc.value)
+    assert "Falha inesperada ao executar getHealth" in str(exc.value)
 
 
 def test_client_balance_and_token_methods() -> None:

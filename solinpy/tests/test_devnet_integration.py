@@ -12,14 +12,16 @@ import time
 import unittest
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.integration
+
 RUN_DEVNET_INTEGRATION = os.getenv("SOLINPY_RUN_DEVNET_INTEGRATION") == "1"
 DEVNET_AIRDROP_LAMPORTS = int(os.getenv("SOLINPY_DEVNET_AIRDROP_LAMPORTS", "100000000"))
 DEVNET_TRANSFER_LAMPORTS = int(os.getenv("SOLINPY_DEVNET_TRANSFER_LAMPORTS", "10000000"))
 DEVNET_TIMEOUT = float(os.getenv("SOLINPY_DEVNET_TIMEOUT", "120"))
 DEVNET_POLL_INTERVAL = float(os.getenv("SOLINPY_DEVNET_POLL_INTERVAL", "2"))
-DEVNET_FUNDED_WALLET_PATH = Path(
-    os.getenv("SOLINPY_DEVNET_FUNDED_WALLET_PATH", "my-wallet.json")
-)
+DEVNET_FUNDED_WALLET_PATH = Path(os.getenv("SOLINPY_DEVNET_FUNDED_WALLET_PATH", "my-wallet.json"))
 DEVNET_REPORT_PATH = Path(
     os.getenv("SOLINPY_DEVNET_REPORT_PATH", "solinpy/tests/devnet_integration_report.md")
 )
@@ -34,6 +36,7 @@ try:
     from solinpy.client.entities import RPCConfig
     from solinpy.utils.airdrop import request_airdrop
     from solinpy.wallet.manager import WalletManager
+
     HAVE_SOLDERS = True
 except ImportError:  # pragma: no cover - handled as a skipped integration module
     HAVE_SOLDERS = False
