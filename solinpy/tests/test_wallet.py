@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import pytest
 from solders.keypair import Keypair
-from wallet.manager import WalletManager
+from solinpy.wallet.manager import WalletManager
 
 
 def test_generate_keypair() -> None:
@@ -33,3 +33,13 @@ def test_import_from_json_file_not_found() -> None:
     """Test if the proper error is raised when file is missing."""
     with pytest.raises(FileNotFoundError):
         WalletManager.import_from_json("non_existent_path.json")
+
+
+def test_import_from_json_invalid_format(tmp_path: Path) -> None:
+    """Test if ValueError is raised for non-list JSON."""
+    mock_file = tmp_path / "invalid_wallet.json"
+    with open(mock_file, "w", encoding="utf-8") as f:
+        json.dump({"invalid": True}, f)
+
+    with pytest.raises(ValueError):
+        WalletManager.import_from_json(mock_file)
