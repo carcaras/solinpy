@@ -86,116 +86,72 @@ class SolanaRPCClient:
 
     def send_transaction(self, tx_base64: str, max_retries: int = 5) -> str:
         resp = self._call(
-            "sendTransaction", [tx_base64, {"encoding": "base64", "maxRetries": max_retries}]
-        )
+            "sendTransaction",
+            [tx_base64, {
+                "encoding": "base64",
+                "maxRetries": max_retries
+            }])
         return resp["result"]
-
-    def get_account_info(
-        self,
-        public_key: str,
-        commitment: str = "confirmed",
-        encoding: str = "base64"
-    ) -> Optional[AccountInfo]:
+    
+    def get_balance(self, address: str) -> int:
         """
-        Consulta dados de uma conta na blockchain Solana.
+        Returns the account balance in Lamports.
         
         Args:
-            public_key: Endereço da conta a ser consultada
-            commitment: Nível de confirmação ('processed', 'confirmed', 'finalized')
-            encoding: Codificação dos dados ('base64', 'jsonParsed', 'base58', 'base64+zstd')
-        
-        Returns:
-            AccountInfo com dados estruturados da conta, ou None se a conta não existir
-            
-        Raises:
-            ValueError: Se o endereço da conta for inválido
-        """
-        resp = self._call(
-            "getAccountInfo",
-            [
-                public_key,
-                {
-                    "encoding": encoding,
-                    "commitment": commitment
-                }
-            ]
-        )
-        
-        value = resp["result"]["value"]
-        
-        # Conta não existe ou foi fechada
-        if value is None:
-            return None
-        
-        # Processa os dados da conta
-        raw_data = value.get("data")
-        
-        # Desserializa dados base64 para bytes quando possível
-        decoded_data = self._decode_account_data(raw_data, encoding)
-        
-        return AccountInfo(
-            lamports=value["lamports"],
-            owner=value["owner"],
-            data=decoded_data,
-            executable=value["executable"],
-            rent_epoch=value["rentEpoch"],
-            public_key=public_key
-        )
-
-    def get_balance(
-        self,
-        public_key: str,
-        commitment: str = "confirmed"
-    ) -> int:
-        """
-        Consulta o saldo de uma conta em lamports.
-        
-        Args:
-            public_key: Endereço da conta
-            commitment: Nível de confirmação ('processed', 'confirmed', 'finalized')
+            address: The base58-encoded public key of the account.
             
         Returns:
-            Saldo em lamports (1 SOL = 10^9 lamports)
+            int: The balance in Lamports.
         """
-        resp = self._call(
-            "getBalance",
-            [public_key, {"commitment": commitment}]
-        )
+        resp = self._call("getBalance", [address])
         return resp["result"]["value"]
 
-    @staticmethod
-    def _decode_account_data(
-        raw_data: Any,
-        encoding: str
-    ) -> Union[bytes, str, Dict[str, Any]]:
+    def get_token_accounts_by_owner(self, address: str) -> list[Dict[str, Any]]:
         """
-        Desserializa dados brutos de uma conta.
+        Returns the list of SPL token accounts associated with an address.
+        """
+        TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         
+        sanitized_address = address.strip()
+        
+        params = [
+            sanitized_address,
+            {"programId": TOKEN_PROGRAM_ID},
+            {"encoding": "jsonParsed", "commitment": "confirmed"} # Adicionado o commitment
+        ]
+        
+        resp = self._call("getTokenAccountsByOwner", params)
+        return resp["result"]["value"]
+    
+    def get_sol_balance(self, address: str) -> float:
+        """
+        Returns the account balance converted to SOL (user-friendly unit).
+
         Args:
-            raw_data: Dados brutos da resposta RPC
-            encoding: Codificação utilizada
-            
+            address: The base58-encoded public key of the account.
+
         Returns:
-            Dados decodificados (bytes para base64, dict para jsonParsed, str para base58)
+            float: The balance in SOL.
         """
-        if raw_data is None:
-            return b""
+        lamports = self.get_balance(address)
+        # 1 SOL is equivalent to 1,000,000,000 Lamports
+        return lamports / 1_000_000_000
+    
+    def get_token_balances(self, address: str) -> list[dict]:
+        """
+        Retrieves a simplified list of token balances for a given address.
+        """
+        raw_accounts = self.get_token_accounts_by_owner(address)
+        balances = []
         
-        # Dados já parseados como JSON (ex: programas SPL Token, Metaplex)
-        if isinstance(raw_data, dict):
-            return raw_data
-        
-        # Dados codificados em base64 (formato: [base64_string, "base64"])
-        if isinstance(raw_data, list) and len(raw_data) >= 1:
-            data_str = raw_data[0]
-            try:
-                return base64.b64decode(data_str)
-            except Exception:
-                return data_str
-        
-        # Dados em base58 ou outros formatos de string
-        if isinstance(raw_data, str):
-            return raw_data
-        
-        # Fallback: retorna dados brutos
-        return raw_data
+        for account in raw_accounts:
+            info = account["account"]["data"]["parsed"]["info"]
+            token_amount = info["tokenAmount"]
+            
+            balances.append({
+                "mint": info["mint"],
+                "amount": token_amount["uiAmount"],
+                "decimals": token_amount["decimals"]
+            })
+            
+        return balances

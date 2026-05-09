@@ -10,37 +10,10 @@ class RPCConfig:
     timeout: float = 10.0
     retries: int = 3
     backoff_factor: float = 0.5
-<<<<<<< HEAD
-    max_retries: int = 3
-    base_delay: float = 1.0
-    max_delay: float = 30.0
-    retryable_http_codes: tuple = (429, 500, 502, 503, 504)
-    retryable_rpc_codes: tuple = (-32004, -32005)
-=======
-
 
 @dataclass
-class AccountInfo:
-    """
-    Dados estruturados de uma conta on-chain.
-    
-    Attributes:
-        lamports: Salda da conta em lamports (1 SOL = 10^9 lamports)
-        owner: Endereço da conta proprietária (programa que gerencia esta conta)
-        data: Dados brutos da conta (bytes ou string base64)
-        executable: Indica se a conta contém um programa executável
-        rent_epoch: Epoch em que a conta próxima pagará rent
-        public_key: Endereço da conta consultada
-    """
-    lamports: int
-    owner: str
-    data: Union[bytes, str, Dict[str, Any]]
-    executable: bool
-    rent_epoch: int
-    public_key: str
-    
-    @property
-    def sol_balance(self) -> float:
-        """Retorna o saldo em SOL (convertido de lamports)."""
-        return self.lamports / 1_000_000_000
->>>>>>> feature/on-chain
+class TokenBalance:
+    mint: str
+    amount: float
+    decimals: int
+    ui_amount: str
