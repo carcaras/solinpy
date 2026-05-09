@@ -34,7 +34,7 @@ def import_from_mnemonic(
     return keypair
 
 def _derive_slip10_ed25519(seed: bytes, path: str) -> bytes:
-    """Derivação interna SLIP-0010 para Ed25519 (hardened only)."""
+    """Internal derivation SLIP-0010 to  Ed25519 (hardened only)."""
     master = hmac.new(b"ed25519 seed", seed, hashlib.sha512).digest()
     key, chain = master[:32], master[32:]
 
