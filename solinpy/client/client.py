@@ -3,15 +3,20 @@ import random
 import time
 import urllib.request
 import urllib.error
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 from solinpy.client.entities import RPCConfig
 from solinpy.client.execptions import RPCError
 
 class SolanaRPCClient:
-    def __init__(self, config: Optional[RPCConfig] = None):
+    def __init__(
+        self,
+        config: Optional[RPCConfig] = None,
+        transport: Optional[Callable[..., Any]] = None,
+    ):
         self.cfg = config or RPCConfig()
         self.endpoint = self.cfg.custom_endpoint or self._resolve_cluster_url()
         self._request_id = 0
+        self._transport = transport or urllib.request.urlopen
 
     def _resolve_cluster_url(self) -> str:
         urls = {
@@ -60,7 +65,7 @@ class SolanaRPCClient:
         last_exc = None
         for attempt in range(self.cfg.max_retries + 1):
             try:
-                with urllib.request.urlopen(req, timeout=self.cfg.timeout) as resp:
+                with self._transport(req, timeout=self.cfg.timeout) as resp:
                     body = json.loads(resp.read())
                     if "error" in body:
                         err = body["error"]
