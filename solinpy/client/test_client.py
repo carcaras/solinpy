@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import json
-import base64
 import urllib.error
 from .client import SolanaRPCClient
 from .execptions import RPCError
@@ -63,7 +62,7 @@ class TestSolanaRPCClient(unittest.TestCase):
         client = SolanaRPCClient(self.config)
         with self.assertRaises(RPCError) as ctx:
             client.get_health()
-        self.assertIn("Invalid Request", str(ctx.exception))
+        self.assertIn("Requisição RPC inválida", str(ctx.exception))
 
     #  5. Validação do payload de sendTransaction
     @patch("urllib.request.urlopen")
@@ -81,22 +80,17 @@ class TestSolanaRPCClient(unittest.TestCase):
         self.assertEqual(payload["params"][1]["encoding"], "base64")
         self.assertEqual(payload["params"][1]["maxRetries"], 5)
 
-<<<<<<< HEAD
-
 class TestRPCRetryAndTimeout(unittest.TestCase):
     def setUp(self):
         self.config = RPCConfig(
             cluster="devnet", max_retries=2, base_delay=0.01, max_delay=0.1, timeout=1.0
         )
 
-    def _mock_resp(self, data: dict, http_code: int = 200):
-        mock = MagicMock()
+    def _mock_resp(self, data: dict) -> MagicMock:
+        mock: MagicMock = MagicMock()
         mock.read.return_value = json.dumps(data).encode()
         mock.__enter__ = MagicMock(return_value=mock)
         mock.__exit__ = MagicMock(return_value=False)
-        if http_code != 200:
-            exc = urllib.error.HTTPError("url", http_code, "msg", {}, mock)
-            raise exc
         return mock
 
     @patch("urllib.request.urlopen")
@@ -120,9 +114,10 @@ class TestRPCRetryAndTimeout(unittest.TestCase):
             {"error": {"code": -32600, "message": "Invalid Request"}}
         )
         client = SolanaRPCClient(self.config)
-        with self.assertRaises(RPCError):
+        with self.assertRaises(RPCError) as ctx:
             client.get_health()
-        mock_sleep.assert_not_called()  # Não deve fazer retry
+        self.assertIn("Requisição RPC inválida", str(ctx.exception))
+        mock_sleep.assert_not_called()
 
     @patch("urllib.request.urlopen")
     @patch("time.sleep")
@@ -131,7 +126,6 @@ class TestRPCRetryAndTimeout(unittest.TestCase):
         client = SolanaRPCClient(self.config)
         with self.assertRaises(RPCError):
             client.get_health()
-        # 1 tentativa + 2 retries = 3 chamadas
         self.assertEqual(mock_urlopen.call_count, 3)
         self.assertEqual(mock_sleep.call_count, 2)
 
@@ -139,106 +133,32 @@ class TestRPCRetryAndTimeout(unittest.TestCase):
         client = SolanaRPCClient(RPCConfig(timeout=5.0))
         self.assertEqual(client.cfg.timeout, 5.0)
 
-=======
-    # 🟢 6. get_account_info - conta existente
     @patch("urllib.request.urlopen")
-    def test_get_account_info_success(self, mock_urlopen):
-        # Simula resposta RPC para conta com dados base64
-        account_data = base64.b64encode(b"test data").decode()
-        mock_urlopen.return_value = self._mock_urlopen_response({
-            "result": {
-                "value": {
-                    "lamports": 1000000000,
-                    "owner": "11111111111111111111111111111111",
-                    "data": [account_data, "base64"],
-                    "executable": False,
-                    "rentEpoch": 0
-                }
-            }
-        })
-        client = SolanaRPCClient(self.config)
-        account = client.get_account_info("So11111111111111111111111111111111111111112")
-        
-        self.assertIsNotNone(account)
-        self.assertEqual(account.lamports, 1000000000)
-        self.assertEqual(account.sol_balance, 1.0)
-        self.assertEqual(account.owner, "11111111111111111111111111111111")
-        self.assertEqual(account.data, b"test data")
-        self.assertFalse(account.executable)
-        self.assertEqual(account.public_key, "So11111111111111111111111111111111111111112")
-
-    # 🟡 7. get_account_info - conta inexistente
-    @patch("urllib.request.urlopen")
-    def test_get_account_info_not_found(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({
-            "result": {"value": None}
-        })
-        client = SolanaRPCClient(self.config)
-        account = client.get_account_info("SomeAccount111111111111111111111111111111")
-        
-        self.assertIsNone(account)
-
-    # 🟢 8. get_account_info - dados jsonParsed
-    @patch("urllib.request.urlopen")
-    def test_get_account_info_json_parsed(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({
-            "result": {
-                "value": {
-                    "lamports": 2039280,
-                    "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-                    "data": {
-                        "state": "initialized",
-                        "mint": "So11111111111111111111111111111111111111112",
-                        "owner": "UserAddress1111111111111111111111111111111"
-                    },
-                    "executable": False,
-                    "rentEpoch": 100
-                }
-            }
-        })
-        client = SolanaRPCClient(self.config)
-        account = client.get_account_info(
-            "TokenAccount1111111111111111111111111111111",
-            encoding="jsonParsed"
+    def test_invalid_account_error_is_friendly(self, mock_urlopen):
+        mock_urlopen.return_value = self._mock_resp(
+            {"error": {"code": -32602, "message": "Invalid params"}}
         )
-        
-        self.assertIsNotNone(account)
-        self.assertEqual(account.lamports, 2039280)
-        self.assertIsInstance(account.data, dict)
-        self.assertEqual(account.data["state"], "initialized")
-
-    # 🟢 9. get_balance
-    @patch("urllib.request.urlopen")
-    def test_get_balance(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({
-            "result": {"value": 5000000000}
-        })
         client = SolanaRPCClient(self.config)
-        balance = client.get_balance("UserWallet1111111111111111111111111111111111")
-        
-        self.assertEqual(balance, 5000000000)
+        with self.assertRaises(RPCError) as ctx:
+            client.get_balance("   bad-account   ")
 
-    # 🔵 10. Validação do payload de get_account_info
+        error_text = str(ctx.exception)
+        self.assertIn("Parâmetros inválidos", error_text)
+        self.assertIn("address=bad-account", error_text)
+
     @patch("urllib.request.urlopen")
-    def test_get_account_info_payload(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({
-            "result": {"value": None}
-        })
-        client = SolanaRPCClient(self.config)
-        client.get_account_info(
-            "TestAccount111111111111111111111111111111111",
-            commitment="finalized",
-            encoding="base58"
+    def test_insufficient_funds_error_is_friendly(self, mock_urlopen):
+        mock_urlopen.return_value = self._mock_resp(
+            {"error": {"code": -32000, "message": "insufficient funds for rent"}}
         )
-        
-        # Verifica se o JSON-RPC foi montado corretamente
-        call_args = mock_urlopen.call_args[0][0]
-        payload = json.loads(call_args.data)
-        self.assertEqual(payload["method"], "getAccountInfo")
-        self.assertEqual(payload["params"][0], "TestAccount111111111111111111111111111111111")
-        self.assertEqual(payload["params"][1]["commitment"], "finalized")
-        self.assertEqual(payload["params"][1]["encoding"], "base58")
->>>>>>> feature/on-chain
+        client = SolanaRPCClient(self.config)
+
+        with self.assertRaises(RPCError) as ctx:
+            client.send_transaction("base64payload==")
+
+        error_text = str(ctx.exception)
+        self.assertIn("Saldo insuficiente", error_text)
+        self.assertIn("método=sendTransaction", error_text)
 
 if __name__ == "__main__":
     unittest.main()

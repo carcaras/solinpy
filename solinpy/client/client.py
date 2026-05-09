@@ -1,10 +1,11 @@
 import json
+import random
 import time
-import base64
 import urllib.request
 import urllib.error
-from typing import Optional, Dict, Any, Union
-from solinpy.client.entities import RPCConfig, AccountInfo
+from typing import Optional, Dict, Any
+from solinpy.client.entities import RPCConfig
+from solinpy.client.execptions import RPCError
 
 class SolanaRPCClient:
     def __init__(self, config: Optional[RPCConfig] = None):
@@ -34,7 +35,15 @@ class SolanaRPCClient:
             return True
         return False
 
-    def _call(self, method: str, params: list = None) -> Dict[str, Any]:
+    def _raise_rpc_error(self, method: str, rpc_error: dict, context: Optional[Dict[str, Any]] = None) -> None:
+        raise RPCError.from_rpc_error(method, rpc_error, context=context)
+
+    def _call(
+        self,
+        method: str,
+        params: Optional[list] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         self._request_id += 1
         payload = {
             "jsonrpc": "2.0",
@@ -59,7 +68,7 @@ class SolanaRPCClient:
                             if attempt < self.cfg.max_retries:
                                 time.sleep(self._calc_backoff(attempt))
                                 continue
-                        raise RPCError(f"RPC Error {err.get('code')}: {err.get('message')}")
+                        self._raise_rpc_error(method, err, context=context)
                     return body
 
             except urllib.error.HTTPError as e:
@@ -67,21 +76,38 @@ class SolanaRPCClient:
                 if self._is_retryable(e) and attempt < self.cfg.max_retries:
                     time.sleep(self._calc_backoff(attempt))
                     continue
+                raise RPCError.from_transport_error(
+                    method,
+                    e,
+                    context={**(context or {}), "endpoint": self.endpoint},
+                    message=f"Falha HTTP ao executar {method}. Verifique o endpoint configurado.",
+                ) from e
+            except (urllib.error.URLError, ConnectionError, OSError, TimeoutError) as e:
+                last_exc = e
+                if self._is_retryable(e) and attempt < self.cfg.max_retries:
+                    time.sleep(self._calc_backoff(attempt))
+                    continue
                 break
             except Exception as e:
                 last_exc = e
-                if not self._is_retryable(e) or attempt >= self.cfg.max_retries:
-                    break
-                time.sleep(self._calc_backoff(attempt))
+                raise RPCError.from_transport_error(
+                    method,
+                    e,
+                    context={**(context or {}), "endpoint": self.endpoint},
+                    message=f"Falha inesperada ao executar {method}.",
+                ) from e
         raise RPCError(
-            f"Request failed after {self.cfg.max_retries + 1} attempts. Last: {last_exc}"
+            f"Falha de comunicação ao executar {method} após {self.cfg.max_retries + 1} tentativas.",
+            method=method,
+            context={**(context or {}), "endpoint": self.endpoint},
+            cause=last_exc,
         ) from last_exc
 
     def get_health(self) -> str:
         return self._call("getHealth")["result"]
 
     def get_latest_blockhash(self, commitment: str = "confirmed") -> str:
-        resp = self._call("getLatestBlockhash", [{"commitment": commitment}])
+        resp = self._call("getLatestBlockhash", [{"commitment": commitment}], {"commitment": commitment})
         return resp["result"]["value"]["blockhash"]
 
     def send_transaction(self, tx_base64: str, max_retries: int = 5) -> str:
@@ -90,7 +116,9 @@ class SolanaRPCClient:
             [tx_base64, {
                 "encoding": "base64",
                 "maxRetries": max_retries
-            }])
+            }],
+            {"tx_size": len(tx_base64), "max_retries": max_retries},
+        )
         return resp["result"]
     
     def get_balance(self, address: str) -> int:
@@ -103,7 +131,8 @@ class SolanaRPCClient:
         Returns:
             int: The balance in Lamports.
         """
-        resp = self._call("getBalance", [address])
+        sanitized_address = address.strip()
+        resp = self._call("getBalance", [sanitized_address], {"address": sanitized_address})
         return resp["result"]["value"]
 
     def get_token_accounts_by_owner(self, address: str) -> list[Dict[str, Any]]:
@@ -120,7 +149,7 @@ class SolanaRPCClient:
             {"encoding": "jsonParsed", "commitment": "confirmed"} # Adicionado o commitment
         ]
         
-        resp = self._call("getTokenAccountsByOwner", params)
+        resp = self._call("getTokenAccountsByOwner", params, {"address": sanitized_address})
         return resp["result"]["value"]
     
     def get_sol_balance(self, address: str) -> float:
