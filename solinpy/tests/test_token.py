@@ -18,7 +18,11 @@ def test_get_associated_token_address_matches_program_derivation() -> None:
 
     derived = get_associated_token_address(owner, mint)
     expected, _ = Pubkey.find_program_address(
-        [bytes(Pubkey.from_string(owner)), bytes(TOKEN_PROGRAM_ID), bytes(Pubkey.from_string(mint))],
+        [
+            bytes(Pubkey.from_string(owner)),
+            bytes(TOKEN_PROGRAM_ID),
+            bytes(Pubkey.from_string(mint)),
+        ],
         ASSOCIATED_TOKEN_PROGRAM_ID,
     )
 
@@ -51,7 +55,9 @@ def test_send_token_transfer_creates_receiver_ata_when_missing(
 
     client = MagicMock()
     client.get_account_info.return_value = SimpleNamespace(value=None)
-    client.get_latest_blockhash.return_value = SimpleNamespace(value=SimpleNamespace(blockhash="blockhash-1"))
+    client.get_latest_blockhash.return_value = SimpleNamespace(
+        value=SimpleNamespace(blockhash="blockhash-1")
+    )
     client.send_transaction.return_value = "tx-sig"
 
     result = send_token_transfer(client, sender, receiver_wallet, mint, amount=25, decimals=6)
@@ -96,7 +102,9 @@ def test_send_token_transfer_skips_receiver_ata_creation_when_present(
 
     client = MagicMock()
     client.get_account_info.return_value = SimpleNamespace(value=object())
-    client.get_latest_blockhash.return_value = SimpleNamespace(value=SimpleNamespace(blockhash="blockhash-2"))
+    client.get_latest_blockhash.return_value = SimpleNamespace(
+        value=SimpleNamespace(blockhash="blockhash-2")
+    )
     client.send_transaction.return_value = "tx-sig-2"
 
     result = send_token_transfer(client, sender, receiver_wallet, mint, amount=10, decimals=9)

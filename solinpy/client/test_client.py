@@ -120,6 +120,7 @@ class TestSolanaRPCClient(unittest.TestCase):
         self.assertEqual(payload["params"][1]["until"], "until-sig")
         self.assertEqual(payload["params"][1]["commitment"], "finalized")
 
+
 class TestRPCRetryAndTimeout(unittest.TestCase):
     def setUp(self):
         self.config = RPCConfig(
@@ -199,6 +200,7 @@ class TestRPCRetryAndTimeout(unittest.TestCase):
         error_text = str(ctx.exception)
         self.assertIn("Saldo insuficiente", error_text)
         self.assertIn("método=sendTransaction", error_text)
+
 
 if __name__ == "__main__":
     unittest.main()

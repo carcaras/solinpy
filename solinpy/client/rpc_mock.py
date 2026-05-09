@@ -45,7 +45,9 @@ class RPCMockTransport:
     def __call__(self, req: Any, timeout: float | None = None) -> _MockHTTPResponse:
         payload = json.loads(req.data.decode("utf-8"))
         method = payload.get("method")
-        self.requests.append({"method": method, "params": payload.get("params", []), "timeout": timeout})
+        self.requests.append(
+            {"method": method, "params": payload.get("params", []), "timeout": timeout}
+        )
 
         queue = self._responses.get(method, [])
         if not queue:

@@ -4,7 +4,9 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def block_network_rpc_calls(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+def block_network_rpc_calls(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
     """Prevent accidental real RPC network access in unit tests."""
     if request.node.get_closest_marker("integration"):
         return
