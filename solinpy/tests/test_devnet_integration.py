@@ -12,6 +12,10 @@ import time
 import unittest
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.integration
+
 RUN_DEVNET_INTEGRATION = os.getenv("SOLINPY_RUN_DEVNET_INTEGRATION") == "1"
 DEVNET_AIRDROP_LAMPORTS = int(os.getenv("SOLINPY_DEVNET_AIRDROP_LAMPORTS", "100000000"))
 DEVNET_TRANSFER_LAMPORTS = int(os.getenv("SOLINPY_DEVNET_TRANSFER_LAMPORTS", "10000000"))
