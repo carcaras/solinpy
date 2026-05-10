@@ -13,7 +13,6 @@ class SolanaRPCClient:
             self.cfg = RPCConfig(custom_endpoint=config)
         else:
             self.cfg = config or RPCConfig()
-            
         self.endpoint = self.cfg.custom_endpoint or self._resolve_cluster_url()
         self._request_id = 0
 
