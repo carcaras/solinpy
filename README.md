@@ -1,55 +1,43 @@
 # SolInPy
 
-SolInPy é um SDK Python para Solana pensado para simplificar o dia a dia de quem precisa falar com a rede sem montar tudo do zero.
+SolInPy is a Python SDK for Solana designed to simplify interactions with the network without building everything from scratch.
 
-Ele resolve três pontos principais:
+It focuses on three main areas:
 
-- acesso ao JSON-RPC da Solana com retries, timeouts e tratamento de erro;
-- criação e importação de carteiras;
-- helpers para airdrop e transferência de SPL tokens.
+- Accessing the Solana JSON-RPC with retries, timeouts, and error handling
+- Creating and importing wallets
+- Helpers for airdrops and SPL token transfers
 
-O objetivo é ser um ponto de entrada simples para protótipos, automações e integrações pequenas em devnet, testnet ou mainnet.
+The goal is to provide a simple entry point for prototypes, automations, and small integrations on devnet, testnet, or mainnet.
 
-## O que o SDK cobre
+## What the SDK covers
 
-- Cliente RPC: `SolanaRPCClient`
-- Configuração de rede: `RPCConfig`
-- Carteiras: `WalletManager`
-- Airdrop em redes de teste: `create_airdrop` e `request_airdrop`
-- Transferência de SPL tokens: `send_token_transfer`
-- Decodificação de contas: utilitários em `solinpy.utils.account_decoder`
+- RPC client: `SolanaRPCClient`
+- Network configuration: `RPCConfig`
+- Wallets: `WalletManager`
+- Testnet airdrops: `create_airdrop` and `request_airdrop`
+- SPL token transfers: `send_token_transfer`
+- Account decoding utilities in `solinpy.utils.account_decoder`
 
-## Requisitos
+## Requirements
 
 - Python 3.10+
-- acesso à internet para chamadas RPC reais
+- Internet access for real RPC calls
 
-## Instalação
+## Installation
 
-Clone o repositório e instale as dependências:
-
-```bash
-git clone <url-do-repositorio>
-cd solana-hackathon
-
-python -m venv .venv
-source .venv/bin/activate
-
-python -m pip install -U pip
-python -m pip install -r requirements.txt
-```
-
-Se estiver no Windows, ative o ambiente com:
+Install from PyPI:
 
 ```bash
-.venv\Scripts\activate
+pip install solinpy
 ```
 
-Depois disso, execute seus scripts a partir da raiz do projeto para que o pacote `solinpy` seja importado corretamente.
+
+After that, run your scripts from the project root so the `solinpy` package can be imported correctly.
 
 ## Quickstart
 
-### 1. Fazer uma chamada RPC básica
+### 1. Make a basic RPC call
 
 ```python
 from solinpy.client.client import SolanaRPCClient
@@ -61,7 +49,7 @@ print(client.get_health())
 print(client.get_latest_blockhash())
 ```
 
-### 2. Criar ou importar uma carteira
+### 2. Create or import a wallet
 
 ```python
 from solinpy.wallet.manager import WalletManager
@@ -73,7 +61,7 @@ loaded_keypair = WalletManager.import_from_json("my-wallet.json")
 print(loaded_keypair.pubkey())
 ```
 
-### 3. Pedir airdrop em devnet
+### 3. Request an airdrop on devnet
 
 ```python
 from solinpy.utils.airdrop import request_airdrop
@@ -83,7 +71,7 @@ print(result["signature"])
 print(result["balance"])
 ```
 
-### 4. Ler saldo e histórico
+### 4. Read balance and history
 
 ```python
 wallet_address = str(keypair.pubkey())
@@ -93,7 +81,7 @@ print(client.get_sol_balance(wallet_address))
 print(client.get_transaction_history(wallet_address, limit=5))
 ```
 
-### 5. Transferir SPL token
+### 5. Transfer an SPL token
 
 ```python
 from solinpy.transaction.token import send_token_transfer
@@ -101,8 +89,8 @@ from solinpy.transaction.token import send_token_transfer
 signature = send_token_transfer(
 	client=client,
 	sender_keypair=keypair,
-	destination_wallet="<endereco-da-carteira-destino>",
-	token_mint="<mint-do-token>",
+	destination_wallet="<destination-wallet-address>",
+	token_mint="<token-mint>",
 	amount=25,
 	decimals=6,
 )
@@ -110,9 +98,9 @@ signature = send_token_transfer(
 print(signature)
 ```
 
-Esse helper cria a associated token account do destinatário automaticamente quando ela ainda não existir.
+This helper will automatically create the recipient's associated token account if it does not already exist.
 
-## Exemplo completo
+## Complete example
 
 ```python
 from solinpy.client.client import SolanaRPCClient
@@ -130,11 +118,11 @@ address = str(wallet.pubkey())
 balance_lamports = client.get_balance(address)
 
 print("Airdrop:", airdrop["signature"])
-print("Saldo em lamports:", balance_lamports)
-print("Saldo em SOL:", client.get_sol_balance(address))
+print("Balance in lamports:", balance_lamports)
+print("Balance in SOL:", client.get_sol_balance(address))
 ```
 
-## Estrutura do projeto
+## Project structure
 
 ```text
 solinpy/
@@ -144,15 +132,15 @@ solinpy/
 └── utils/
 ```
 
-## Notas de uso
+## Usage notes
 
-- `devnet` e `testnet` são as redes mais seguras para começar.
-- `request_airdrop` e `create_airdrop` só fazem sentido nessas redes.
-- `send_token_transfer` pressupõe que você já tem o mint do token e a carteira do destinatário.
+- `devnet` and `testnet` are the safest networks to get started.
+- `request_airdrop` and `create_airdrop` only make sense on those networks.
+- `send_token_transfer` assumes you already have the token mint and the recipient's wallet address.
 
-## Contribuição
+## Contributing
 
-Os testes do projeto usam `pytest`, e a base também é verificada com `ruff` e `mypy`.
+The project tests use `pytest`, and the codebase is also checked with `ruff` and `mypy`.
 
 ```bash
 pytest
