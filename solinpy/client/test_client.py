@@ -28,6 +28,9 @@ class TestSolanaRPCClient(unittest.TestCase):
         c2 = SolanaRPCClient(RPCConfig(custom_endpoint="https://meu-rpc.com"))
         self.assertEqual(c2.endpoint, "https://meu-rpc.com")
 
+        c3 = SolanaRPCClient("https://api.devnet.solana.com")
+        self.assertEqual(c3.endpoint, "https://api.devnet.solana.com")
+
     #  2. Sucesso básico
     @patch("urllib.request.urlopen")
     def test_get_health_success(self, mock_urlopen):
