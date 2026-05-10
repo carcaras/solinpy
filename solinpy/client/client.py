@@ -188,3 +188,10 @@ class SolanaRPCClient:
             })
             
         return balances
+    
+    def get_account_info(self, public_key: str, commitment: str = "confirmed", encoding: str = "base64") -> Optional[Dict[str, Any]]:
+        """Retrieves full account' data from the blockchain."""
+        params = [public_key, {"commitment": commitment, "encoding": encoding}]
+        resp = self._call("getAccountInfo", params)
+
+        return resp.get("result")
