@@ -8,9 +8,12 @@ from solinpy.client.entities import RPCConfig
 from solinpy.client.execptions import RPCError
 
 class SolanaRPCClient:
-    def __init__(self, endpoint, config: Optional[RPCConfig] = None):
-        self.endpoint = endpoint
-        self.cfg = config or RPCConfig()
+    def __init__(self, config: Optional[RPCConfig | str] = None):
+        if isinstance(config, str):
+            self.cfg = RPCConfig(custom_endpoint=config)
+        else:
+            self.cfg = config or RPCConfig()
+            
         self.endpoint = self.cfg.custom_endpoint or self._resolve_cluster_url()
         self._request_id = 0
 
