@@ -1,0 +1,38 @@
+site_name: SolInPy Documentation
+site_description: A high-performance Python framework for the Solana blockchain.
+site_author: Equipe Carcarás
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: black
+    accent: deep purple
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Quickstart: quickstart.md
+  - API Reference:
+    - RPC Client: api/client.md
+    - Transactions: api/transactions.md
+    - Wallet Management: api/wallet.md
+  - Examples:
+    - Token Transfer: examples/token_transfer.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            show_root_heading: true
+            show_source: true
