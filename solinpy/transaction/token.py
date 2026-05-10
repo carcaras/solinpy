@@ -3,6 +3,7 @@ from solders.pubkey import Pubkey
 from solders.keypair import Keypair
 from solders.message import Message
 from solders.transaction import Transaction
+import base64
 from spl.token.instructions import (
     transfer_checked, 
     TransferCheckedParams, 
@@ -12,6 +13,24 @@ from spl.token.instructions import (
 # Constants for SPL Token Program
 TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+
+def send_token_transfer(client, sender_keypair, instructions):
+    """
+    Builds, signs, and sends a token transfer transaction.
+    """
+    # Fetches the recent blockhash directly from the client
+    recent_blockhash = client.get_latest_blockhash() 
+
+    # Builds the transaction message
+    sender_pubkey = sender_keypair.pubkey()
+    msg = Message(instructions, sender_pubkey)
+    tx = Transaction([sender_keypair], msg, recent_blockhash)
+
+    # Encodes the signed transaction to base64 for RPC transmission
+    tx_bytes = bytes(tx)
+    tx_base64 = base64.b64encode(tx_bytes).decode("utf-8")
+
+    return client.send_transaction(tx_base64)
 
 def get_associated_token_address(owner_address: str, token_mint_address: str) -> Pubkey:
     """

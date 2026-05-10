@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import pytest
 from solders.keypair import Keypair
-from wallet.manager import WalletManager
+from solinpy.wallet.manager import WalletManager
 
 
 def test_generate_keypair() -> None:
