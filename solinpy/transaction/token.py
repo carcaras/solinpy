@@ -1,3 +1,4 @@
+import base64
 from typing import Any
 from solders.pubkey import Pubkey
 from solders.keypair import Keypair
@@ -25,6 +26,20 @@ def get_associated_token_address(owner_address: str, token_mint_address: str) ->
         ASSOCIATED_TOKEN_PROGRAM_ID
     )
     return ata
+
+def sign_and_serialize_transaction(
+    sender_keypair: Keypair,
+    instructions: list,
+    recent_blockhash: str,
+) -> str:
+    """
+    Builds a Message from instructions, creates and signs a Transaction,
+    then serializes it to a base64-encoded string for RPC submission.
+    """
+    sender_pubkey = sender_keypair.pubkey()
+    msg = Message(instructions, sender_pubkey)
+    tx = Transaction([sender_keypair], msg, recent_blockhash)
+    return base64.b64encode(bytes(tx)).decode("utf-8")
 
 def send_token_transfer(
     client: Any, 
@@ -74,14 +89,13 @@ def send_token_transfer(
     instructions.append(transfer_ix)
 
     # Modern Solana Transaction Building
-    # 1. Get the latest blockhash from the network
-    recent_blockhash = client.get_latest_blockhash().value.blockhash
+    # 1. Get the latest blockhash from the network (returns a string)
+    recent_blockhash = client.get_latest_blockhash()
     
-    # 2. Build the message with our instructions
-    msg = Message(instructions, sender_pubkey)
-    
-    # 3. Create and sign the transaction
-    tx = Transaction([sender_keypair], msg, recent_blockhash)
+    # 2. Build, sign, and serialize the transaction to base64
+    tx_base64 = sign_and_serialize_transaction(
+        sender_keypair, instructions, recent_blockhash
+    )
 
     # Finalize and send
-    return client.send_transaction(tx)
+    return client.send_transaction(tx_base64)
