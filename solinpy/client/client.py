@@ -124,6 +124,24 @@ class SolanaRPCClient:
         )
         return resp["result"]
     
+    def get_account_info(self, address: Any, commitment: str = "confirmed") -> Any:
+        """
+        Returns the account information for a given Pubkey or base58 address.
+        
+        Uses a simple namespace object to mimic solders RpcAccountInfo response
+        so that token.py can check account_info.value is None.
+        """
+        sanitized = str(address).strip()
+        resp = self._call(
+            "getAccountInfo",
+            [sanitized, {"encoding": "base64", "commitment": commitment}],
+            {"address": sanitized},
+        )
+        result = resp.get("result")
+        if result is None:
+            return type("RpcAccountInfo", (), {"value": None})()
+        return type("RpcAccountInfo", (), {"value": result.get("value")})()
+    
     def get_balance(self, address: str) -> int:
         """
         Returns the account balance in Lamports.
