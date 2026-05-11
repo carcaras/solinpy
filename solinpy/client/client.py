@@ -4,8 +4,24 @@ import time
 import urllib.request
 import urllib.error
 from typing import Optional, Dict, Any
+from solders.pubkey import Pubkey
 from solinpy.client.entities import RPCConfig
 from solinpy.client.execptions import RPCError
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, Pubkey):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
+
+
+def _normalize_address(address: Any) -> str:
+    return str(address).strip()
+
 
 class SolanaRPCClient:
     def __init__(self, config: Optional[RPCConfig | str] = None):
@@ -29,7 +45,7 @@ class SolanaRPCClient:
         jitter = random.uniform(0, delay * 0.5)
         return delay + jitter
 
-    def _is_retryable(self, exc: Exception, rpc_error: Optional[dict] = None) -> bool:
+    def _is_retryable(self, exc: Optional[Exception], rpc_error: Optional[dict] = None) -> bool:
         if isinstance(exc, urllib.error.HTTPError):
             return exc.code in self.cfg.retryable_http_codes
         if isinstance(exc, (urllib.error.URLError, ConnectionError, OSError, TimeoutError)):
@@ -52,7 +68,7 @@ class SolanaRPCClient:
             "jsonrpc": "2.0",
             "id": self._request_id,
             "method": method,
-            "params": params or [],
+            "params": _json_safe(params or []),
         }
         data = json.dumps(payload).encode("utf-8")
 
@@ -60,7 +76,7 @@ class SolanaRPCClient:
             self.endpoint, data=data, headers={"Content-Type": "application/json"}, method="POST"
         )
 
-        last_exc = None
+        last_exc: Optional[Exception] = None
         for attempt in range(self.cfg.max_retries + 1):
             try:
                 with urllib.request.urlopen(req, timeout=self.cfg.timeout) as resp:
@@ -124,7 +140,7 @@ class SolanaRPCClient:
         )
         return resp["result"]
     
-    def get_balance(self, address: str) -> int:
+    def get_balance(self, address: str | Pubkey) -> int:
         """
         Returns the account balance in Lamports.
         
@@ -134,17 +150,17 @@ class SolanaRPCClient:
         Returns:
             int: The balance in Lamports.
         """
-        sanitized_address = address.strip()
+        sanitized_address = _normalize_address(address)
         resp = self._call("getBalance", [sanitized_address], {"address": sanitized_address})
         return resp["result"]["value"]
 
-    def get_token_accounts_by_owner(self, address: str) -> list[Dict[str, Any]]:
+    def get_token_accounts_by_owner(self, address: str | Pubkey) -> list[Dict[str, Any]]:
         """
         Returns the list of SPL token accounts associated with an address.
         """
         TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         
-        sanitized_address = address.strip()
+        sanitized_address = _normalize_address(address)
         
         params = [
             sanitized_address,

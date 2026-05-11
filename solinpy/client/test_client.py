@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 import json
 import urllib.error
+from solders.pubkey import Pubkey
 from .client import SolanaRPCClient
 from .execptions import RPCError
 from .entities import RPCConfig
@@ -82,6 +83,34 @@ class TestSolanaRPCClient(unittest.TestCase):
         self.assertEqual(payload["params"][0], "base64payload==")
         self.assertEqual(payload["params"][1]["encoding"], "base64")
         self.assertEqual(payload["params"][1]["maxRetries"], 5)
+
+    @patch("urllib.request.urlopen")
+    def test_rpc_payload_serializes_pubkeys(self, mock_urlopen):
+        mock_urlopen.return_value = self._mock_urlopen_response({"result": {"value": []}})
+        client = SolanaRPCClient(self.config)
+        owner = Pubkey.from_string("So11111111111111111111111111111111111111112")
+        program_id = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+
+        client._call("getTokenAccountsByOwner", [owner, {"programId": program_id}])
+
+        call_args = mock_urlopen.call_args[0][0]
+        payload = json.loads(call_args.data)
+        self.assertEqual(
+            payload["params"],
+            [str(owner), {"programId": str(program_id)}],
+        )
+
+    @patch("urllib.request.urlopen")
+    def test_get_balance_accepts_pubkey(self, mock_urlopen):
+        mock_urlopen.return_value = self._mock_urlopen_response({"result": {"value": 123}})
+        client = SolanaRPCClient(self.config)
+        address = Pubkey.from_string("So11111111111111111111111111111111111111112")
+
+        self.assertEqual(client.get_balance(address), 123)
+
+        call_args = mock_urlopen.call_args[0][0]
+        payload = json.loads(call_args.data)
+        self.assertEqual(payload["params"], [str(address)])
 
 class TestRPCRetryAndTimeout(unittest.TestCase):
     def setUp(self):
