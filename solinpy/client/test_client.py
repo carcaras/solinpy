@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 import json
 import urllib.error
+from solders.pubkey import Pubkey
 from .client import SolanaRPCClient
 from .rpc_mock import RPCMockTransport
 from .execptions import RPCError
@@ -28,6 +29,9 @@ class TestSolanaRPCClient(unittest.TestCase):
 
         c2 = SolanaRPCClient(RPCConfig(custom_endpoint="https://meu-rpc.com"))
         self.assertEqual(c2.endpoint, "https://meu-rpc.com")
+
+        c3 = SolanaRPCClient("https://api.devnet.solana.com")
+        self.assertEqual(c3.endpoint, "https://api.devnet.solana.com")
 
     #  2. Sucesso básico
     def test_get_health_success(self):
