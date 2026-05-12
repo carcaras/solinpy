@@ -134,7 +134,8 @@ class SolanaRPCClient:
             "sendTransaction",
             [tx_base64, {
                 "encoding": "base64",
-                "maxRetries": max_retries
+                "maxRetries": max_retries,
+                "preflightCommitment": "confirmed"  # <--- O SEGREDO ESTÁ AQUI
             }],
             {"tx_size": len(tx_base64), "max_retries": max_retries},
         )
