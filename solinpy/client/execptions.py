@@ -41,7 +41,9 @@ def _friendly_rpc_message(method: str, code: Optional[int], message: str) -> str
             "account does not exist",
         )
     ):
-        return f"Conta inválida ou inexistente ao executar {method}. Verifique o endereço informado."
+        return (
+            f"Conta inválida ou inexistente ao executar {method}. Verifique o endereço informado."
+        )
 
     if any(term in normalized for term in ("blockhash not found", "blockhash expired")):
         return f"Blockhash expirado ou inválido ao executar {method}. Busque um blockhash novo e tente novamente."
@@ -103,7 +105,9 @@ class RPCError(Exception):
     ) -> "RPCError":
         code = rpc_error.get("code")
         raw_message = str(rpc_error.get("message") or "")
-        friendly_message = _friendly_rpc_message(method, code if isinstance(code, int) else None, raw_message)
+        friendly_message = _friendly_rpc_message(
+            method, code if isinstance(code, int) else None, raw_message
+        )
 
         extra_details = rpc_error.get("data")
         merged_context: dict[str, Any] = dict(context or {})
@@ -126,5 +130,8 @@ class RPCError(Exception):
         context: Optional[Mapping[str, Any]] = None,
         message: Optional[str] = None,
     ) -> "RPCError":
-        friendly_message = message or f"Falha de comunicação ao executar {method}. Verifique o endpoint e tente novamente."
+        friendly_message = (
+            message
+            or f"Falha de comunicação ao executar {method}. Verifique o endpoint e tente novamente."
+        )
         return cls(friendly_message, method=method, context=context, cause=error)

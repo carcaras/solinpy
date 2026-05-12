@@ -3,34 +3,21 @@ import random
 import time
 import urllib.request
 import urllib.error
-from typing import Optional, Dict, Any
-from solders.pubkey import Pubkey
+from typing import Optional, Dict, Any, Callable
 from solinpy.client.entities import RPCConfig
 from solinpy.client.execptions import RPCError
 
 
-def _json_safe(value: Any) -> Any:
-    if isinstance(value, Pubkey):
-        return str(value)
-    if isinstance(value, dict):
-        return {key: _json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(item) for item in value]
-    return value
-
-
-def _normalize_address(address: Any) -> str:
-    return str(address).strip()
-
-
 class SolanaRPCClient:
-    def __init__(self, config: Optional[RPCConfig | str] = None):
-        if isinstance(config, str):
-            self.cfg = RPCConfig(custom_endpoint=config)
-        else:
-            self.cfg = config or RPCConfig()
+    def __init__(
+        self,
+        config: Optional[RPCConfig] = None,
+        transport: Optional[Callable[..., Any]] = None,
+    ):
+        self.cfg = config or RPCConfig()
         self.endpoint = self.cfg.custom_endpoint or self._resolve_cluster_url()
         self._request_id = 0
+        self._transport = transport or urllib.request.urlopen
 
     def _resolve_cluster_url(self) -> str:
         urls = {
@@ -54,7 +41,9 @@ class SolanaRPCClient:
             return True
         return False
 
-    def _raise_rpc_error(self, method: str, rpc_error: dict, context: Optional[Dict[str, Any]] = None) -> None:
+    def _raise_rpc_error(
+        self, method: str, rpc_error: dict, context: Optional[Dict[str, Any]] = None
+    ) -> None:
         raise RPCError.from_rpc_error(method, rpc_error, context=context)
 
     def _call(
@@ -79,7 +68,7 @@ class SolanaRPCClient:
         last_exc: Optional[Exception] = None
         for attempt in range(self.cfg.max_retries + 1):
             try:
-                with urllib.request.urlopen(req, timeout=self.cfg.timeout) as resp:
+                with self._transport(req, timeout=self.cfg.timeout) as resp:
                     body = json.loads(resp.read())
                     if "error" in body:
                         err = body["error"]
@@ -126,28 +115,26 @@ class SolanaRPCClient:
         return self._call("getHealth")["result"]
 
     def get_latest_blockhash(self, commitment: str = "confirmed") -> str:
-        resp = self._call("getLatestBlockhash", [{"commitment": commitment}], {"commitment": commitment})
+        resp = self._call(
+            "getLatestBlockhash", [{"commitment": commitment}], {"commitment": commitment}
+        )
         return resp["result"]["value"]["blockhash"]
 
     def send_transaction(self, tx_base64: str, max_retries: int = 5) -> str:
         resp = self._call(
             "sendTransaction",
-            [tx_base64, {
-                "encoding": "base64",
-                "maxRetries": max_retries,
-                "preflightCommitment": "confirmed"  # <--- O SEGREDO ESTÁ AQUI
-            }],
+            [tx_base64, {"encoding": "base64", "maxRetries": max_retries}],
             {"tx_size": len(tx_base64), "max_retries": max_retries},
         )
         return resp["result"]
-    
-    def get_balance(self, address: str | Pubkey) -> int:
+
+    def get_balance(self, address: str) -> int:
         """
         Returns the account balance in Lamports.
-        
+
         Args:
             address: The base58-encoded public key of the account.
-            
+
         Returns:
             int: The balance in Lamports.
         """
@@ -160,18 +147,18 @@ class SolanaRPCClient:
         Returns the list of SPL token accounts associated with an address.
         """
         TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        
-        sanitized_address = _normalize_address(address)
-        
+
+        sanitized_address = address.strip()
+
         params = [
             sanitized_address,
             {"programId": TOKEN_PROGRAM_ID},
-            {"encoding": "jsonParsed", "commitment": "confirmed"} # Adicionado o commitment
+            {"encoding": "jsonParsed", "commitment": "confirmed"},  # Adicionado o commitment
         ]
-        
+
         resp = self._call("getTokenAccountsByOwner", params, {"address": sanitized_address})
         return resp["result"]["value"]
-    
+
     def get_sol_balance(self, address: str) -> float:
         """
         Returns the account balance converted to SOL (user-friendly unit).
@@ -185,29 +172,57 @@ class SolanaRPCClient:
         lamports = self.get_balance(address)
         # 1 SOL is equivalent to 1,000,000,000 Lamports
         return lamports / 1_000_000_000
-    
+
     def get_token_balances(self, address: str) -> list[dict]:
         """
         Retrieves a simplified list of token balances for a given address.
         """
         raw_accounts = self.get_token_accounts_by_owner(address)
         balances = []
-        
+
         for account in raw_accounts:
             info = account["account"]["data"]["parsed"]["info"]
             token_amount = info["tokenAmount"]
-            
-            balances.append({
-                "mint": info["mint"],
-                "amount": token_amount["uiAmount"],
-                "decimals": token_amount["decimals"]
-            })
-            
-        return balances
-    
-    def get_account_info(self, public_key: str, commitment: str = "confirmed", encoding: str = "base64") -> Optional[Dict[str, Any]]:
-        """Retrieves full account' data from the blockchain."""
-        params = [public_key, {"commitment": commitment, "encoding": encoding}]
-        resp = self._call("getAccountInfo", params)
 
-        return resp.get("result")
+            balances.append(
+                {
+                    "mint": info["mint"],
+                    "amount": token_amount["uiAmount"],
+                    "decimals": token_amount["decimals"],
+                }
+            )
+
+        return balances
+
+    def get_transaction_history(
+        self,
+        address: str,
+        limit: int = 20,
+        before: Optional[str] = None,
+        until: Optional[str] = None,
+        commitment: str = "confirmed",
+    ) -> list[Dict[str, Any]]:
+        """List recent transaction signatures for a wallet address."""
+        sanitized_address = address.strip()
+        config: Dict[str, Any] = {
+            "limit": limit,
+            "commitment": commitment,
+        }
+
+        if before is not None:
+            config["before"] = before
+        if until is not None:
+            config["until"] = until
+
+        resp = self._call(
+            "getSignaturesForAddress",
+            [sanitized_address, config],
+            {
+                "address": sanitized_address,
+                "limit": limit,
+                "before": before,
+                "until": until,
+                "commitment": commitment,
+            },
+        )
+        return resp["result"]

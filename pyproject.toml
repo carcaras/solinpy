@@ -1,8 +1,8 @@
 [project]
 name = "solinpy"
-version = "0.1.5"
-description = "High-performance Python SDK for Solana"
-authors = [{ name = "Equipe Carcaras" }]
+version = "0.1.0"
+description = "Python SDK for Solana"
+authors = [{ name = "SolPy Team" }]
 requires-python = ">=3.10"
 dependencies = [
     "solders>=0.27.1",
@@ -11,20 +11,25 @@ dependencies = [
     "requests>=2.31.0"
 ]
 
-[tool.setuptools]
-packages = { find = { include = ["solinpy*"] } }
+dependencies = [
+	"solders==0.27.1",
+	"solana==0.36.11",
+	"spl",
+	"mnemonic==0.21",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
 
 [tool.mypy]
-ignore_missing_imports = true
-check_untyped_defs = false
-disallow_untyped_defs = false
-warn_return_any = false
-no_implicit_optional = true
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
 
-[[tool.mypy.overrides]]
-module = "solders.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "mnemonic.*"
-ignore_missing_imports = true
+[tool.pytest.ini_options]
+markers = [
+	"integration: marks tests that perform real network calls",
+]

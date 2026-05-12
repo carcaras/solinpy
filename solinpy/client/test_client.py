@@ -4,6 +4,7 @@ import json
 import urllib.error
 from solders.pubkey import Pubkey
 from .client import SolanaRPCClient
+from .rpc_mock import RPCMockTransport
 from .execptions import RPCError
 from .entities import RPCConfig
 
@@ -33,10 +34,10 @@ class TestSolanaRPCClient(unittest.TestCase):
         self.assertEqual(c3.endpoint, "https://api.devnet.solana.com")
 
     #  2. Sucesso básico
-    @patch("urllib.request.urlopen")
-    def test_get_health_success(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({"result": "ok"})
-        client = SolanaRPCClient(self.config)
+    def test_get_health_success(self):
+        transport = RPCMockTransport()
+        transport.queue_result("getHealth", "ok")
+        client = SolanaRPCClient(self.config, transport=transport)
         self.assertEqual(client.get_health(), "ok")
 
     @patch("urllib.request.urlopen")
@@ -69,48 +70,60 @@ class TestSolanaRPCClient(unittest.TestCase):
         self.assertIn("Requisição RPC inválida", str(ctx.exception))
 
     #  5. Validação do payload de sendTransaction
-    @patch("urllib.request.urlopen")
-    def test_send_transaction_payload(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({"result": "5sig..."})
-        client = SolanaRPCClient(self.config)
+    def test_send_transaction_payload(self):
+        transport = RPCMockTransport()
+        transport.queue_result("sendTransaction", "5sig...")
+        client = SolanaRPCClient(self.config, transport=transport)
         sig = client.send_transaction("base64payload==")
         self.assertEqual(sig, "5sig...")
 
         # Verifica se o JSON-RPC foi montado corretamente
-        call_args = mock_urlopen.call_args[0][0]
-        payload = json.loads(call_args.data)
+        payload = {
+            "method": transport.requests[0]["method"],
+            "params": transport.requests[0]["params"],
+        }
         self.assertEqual(payload["method"], "sendTransaction")
         self.assertEqual(payload["params"][0], "base64payload==")
         self.assertEqual(payload["params"][1]["encoding"], "base64")
         self.assertEqual(payload["params"][1]["maxRetries"], 5)
 
-    @patch("urllib.request.urlopen")
-    def test_rpc_payload_serializes_pubkeys(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({"result": {"value": []}})
-        client = SolanaRPCClient(self.config)
-        owner = Pubkey.from_string("So11111111111111111111111111111111111111112")
-        program_id = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+    def test_get_transaction_history_payload_and_result(self):
+        history = [
+            {
+                "signature": "sig-1",
+                "slot": 123,
+                "confirmationStatus": "confirmed",
+            },
+            {
+                "signature": "sig-2",
+                "slot": 122,
+                "confirmationStatus": "finalized",
+            },
+        ]
+        transport = RPCMockTransport()
+        transport.queue_result("getSignaturesForAddress", history)
+        client = SolanaRPCClient(self.config, transport=transport)
 
-        client._call("getTokenAccountsByOwner", [owner, {"programId": program_id}])
-
-        call_args = mock_urlopen.call_args[0][0]
-        payload = json.loads(call_args.data)
-        self.assertEqual(
-            payload["params"],
-            [str(owner), {"programId": str(program_id)}],
+        result = client.get_transaction_history(
+            "  wallet-address  ",
+            limit=2,
+            before="before-sig",
+            until="until-sig",
+            commitment="finalized",
         )
 
-    @patch("urllib.request.urlopen")
-    def test_get_balance_accepts_pubkey(self, mock_urlopen):
-        mock_urlopen.return_value = self._mock_urlopen_response({"result": {"value": 123}})
-        client = SolanaRPCClient(self.config)
-        address = Pubkey.from_string("So11111111111111111111111111111111111111112")
+        self.assertEqual(result, history)
+        payload = {
+            "method": transport.requests[0]["method"],
+            "params": transport.requests[0]["params"],
+        }
+        self.assertEqual(payload["method"], "getSignaturesForAddress")
+        self.assertEqual(payload["params"][0], "wallet-address")
+        self.assertEqual(payload["params"][1]["limit"], 2)
+        self.assertEqual(payload["params"][1]["before"], "before-sig")
+        self.assertEqual(payload["params"][1]["until"], "until-sig")
+        self.assertEqual(payload["params"][1]["commitment"], "finalized")
 
-        self.assertEqual(client.get_balance(address), 123)
-
-        call_args = mock_urlopen.call_args[0][0]
-        payload = json.loads(call_args.data)
-        self.assertEqual(payload["params"], [str(address)])
 
 class TestRPCRetryAndTimeout(unittest.TestCase):
     def setUp(self):
@@ -191,6 +204,7 @@ class TestRPCRetryAndTimeout(unittest.TestCase):
         error_text = str(ctx.exception)
         self.assertIn("Saldo insuficiente", error_text)
         self.assertIn("método=sendTransaction", error_text)
+
 
 if __name__ == "__main__":
     unittest.main()
