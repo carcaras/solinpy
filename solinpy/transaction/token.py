@@ -3,11 +3,15 @@ from solders.pubkey import Pubkey
 from solders.keypair import Keypair
 from solders.message import Message
 from solders.transaction import Transaction
+from solders.system_program import create_account
 from spl.token.instructions import (
+    InitializeMintParams,
+    initialize_mint,
     transfer_checked,
     TransferCheckedParams,
     create_associated_token_account,
 )
+from spl.token.constants import MINT_LEN
 
 # Constants for SPL Token Program
 TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
@@ -85,3 +89,56 @@ def send_token_transfer(
 
     # Finalize and send
     return client.send_transaction(tx)
+
+
+def create_token_mint(
+    client: Any,
+    payer_keypair: Keypair,
+    mint_authority_pubkey: Pubkey,
+    decimals: int,
+) -> tuple[Any, Pubkey]:
+    """
+    Creates and initializes a new SPL Token mint account.
+
+    Args:
+        client: Solana RPC client with methods used for rent, blockhash and tx send.
+        payer_keypair: Fee payer and funding account.
+        mint_authority_pubkey: Authority that can mint new tokens.
+        decimals: Number of decimal places for the token mint.
+
+    Returns:
+        tuple[Any, Pubkey]: Transaction signature and the new mint address.
+    """
+    mint_keypair = Keypair()
+    payer_pubkey = payer_keypair.pubkey()
+    mint_pubkey = mint_keypair.pubkey()
+
+    rent_response = client.get_minimum_balance_for_rent_exemption(MINT_LEN)
+    rent_lamports = rent_response.value if hasattr(rent_response, "value") else rent_response
+
+    create_mint_account_ix = create_account(
+        {
+            "from_pubkey": payer_pubkey,
+            "to_pubkey": mint_pubkey,
+            "lamports": rent_lamports,
+            "space": MINT_LEN,
+            "owner": TOKEN_PROGRAM_ID,
+        }
+    )
+
+    initialize_mint_ix = initialize_mint(
+        InitializeMintParams(
+            decimals=decimals,
+            program_id=TOKEN_PROGRAM_ID,
+            mint=mint_pubkey,
+            mint_authority=mint_authority_pubkey,
+            freeze_authority=None,
+        )
+    )
+
+    recent_blockhash = client.get_latest_blockhash().value.blockhash
+    msg = Message([create_mint_account_ix, initialize_mint_ix], payer_pubkey)
+    tx = Transaction([payer_keypair, mint_keypair], msg, recent_blockhash)
+
+    signature = client.send_transaction(tx)
+    return signature, mint_pubkey
