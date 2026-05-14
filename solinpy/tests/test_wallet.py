@@ -43,3 +43,20 @@ def test_import_from_json_invalid_format(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         WalletManager.import_from_json(mock_file)
+
+
+def test_export_to_json_round_trip(tmp_path: Path) -> None:
+    """Test exporting a keypair to JSON and importing it back."""
+    original_keypair = Keypair()
+    exported_file = tmp_path / "exported_wallet.json"
+
+    WalletManager.export_to_json(original_keypair, exported_file)
+
+    with open(exported_file, "r", encoding="utf-8") as f:
+        exported_data = json.load(f)
+
+    assert isinstance(exported_data, list)
+    assert exported_data == list(bytes(original_keypair))
+
+    imported_keypair = WalletManager.import_from_json(exported_file)
+    assert imported_keypair.pubkey() == original_keypair.pubkey()
