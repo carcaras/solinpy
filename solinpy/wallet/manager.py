@@ -44,3 +44,18 @@ class WalletManager:
 
         # solders utiliza from_bytes para reconstruir a chave
         return Keypair.from_bytes(bytes(data))
+
+    @staticmethod
+    def export_to_json(keypair: Keypair, file_path: Union[str, Path]) -> None:
+        """
+        Exports a keypair to a standard Solana CLI JSON file.
+
+        Args:
+            keypair: The keypair to export.
+            file_path: Destination path for the .json file.
+        """
+        path = Path(file_path)
+        data = list(bytes(keypair))
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
